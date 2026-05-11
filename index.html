@@ -3596,162 +3596,253 @@ const palette = paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : MARD_PALET
         }
 
         function processBeadChart(img) {
-            // 构建 Mard 色板的颜色查找表
+            // ============================================================
+            // 豆画图纸导入策略：
+            // 豆画图纸是圆珠排列的图纸，每个圆珠的颜色就是 Mard 色号对应的颜色。
+            // 我们的策略是：
+            // 1. 让用户选择目标网格尺寸（或自动检测）
+            // 2. 将图纸缩放到目标尺寸，每个像素采样一个圆珠的颜色
+            // 3. 用 CAM16-UCS 匹配到最近的 Mard 色号
+            // 4. 背景色（图纸间隙的灰白色）标记为透明
+            // ============================================================
+
             const mardPaletteLab = precomputePaletteLab(MARD_PALETTE);
 
-            // 将图纸绘制到 canvas 上
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const imageData = ctx.getImageData(0, 0, img.width, img.height).data;
+            // 将图纸绘制到 canvas 上获取像素数据
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width = img.width;
+            srcCanvas.height = img.height;
+            const srcCtx = srcCanvas.getContext('2d');
+            srcCtx.drawImage(img, 0, 0);
+            const fullImageData = srcCtx.getImageData(0, 0, img.width, img.height).data;
 
-            // 豆画图纸的特征：
-            // 1. 圆珠排列在网格中，每个圆珠内标注了色号文字
-            // 2. 圆珠之间有间隙（通常是浅灰色/白色背景）
-            // 3. 图纸底部有色号图例
+            // ---- 第一步：自动检测圆珠网格 ----
+            // 通过分析水平和垂直方向的亮度变化来检测圆珠间距
+            // 圆珠之间的间隙通常是浅灰色（亮度高），圆珠内部亮度较低或有颜色
 
-            // 策略：采样每个圆珠中心的颜色，然后匹配到最近的 Mard 色号
-            // 先检测网格大小
+            // 扫描多条水平线，统计亮度峰值间距
+            const detectCellSize = () => {
+                const periods = [];
 
-            // 自动检测圆珠大小和间距
-            // 通过扫描水平线，找到颜色变化的周期
-            const detectGridParams = () => {
-                const midY = Math.floor(img.height * 0.4); // 取图纸中间偏上的位置
+                // 扫描5条不同高度的水平线
+                for (let scanRatio = 0.25; scanRatio <= 0.75; scanRatio += 0.125) {
+                    const y = Math.floor(img.height * scanRatio);
+                    const brightness = [];
+                    for (let x = 0; x < img.width; x++) {
+                        const idx = (y * img.width + x) * 4;
+                        brightness.push(fullImageData[idx] * 0.299 + fullImageData[idx+1] * 0.587 + fullImageData[idx+2] * 0.114);
+                    }
+
+                    // 找到亮度峰值（间隙位置）
+                    const threshold = 220; // 间隙通常很亮
+                    const peaks = [];
+                    let inPeak = false;
+                    let peakStart = 0;
+                    for (let x = 0; x < brightness.length; x++) {
+                        if (brightness[x] > threshold && !inPeak) {
+                            inPeak = true;
+                            peakStart = x;
+                        } else if (brightness[x] <= threshold && inPeak) {
+                            inPeak = false;
+                            peaks.push(Math.floor((peakStart + x) / 2)); // 峰值中心
+                        }
+                    }
+
+                    // 计算相邻峰值间距
+                    if (peaks.length >= 3) {
+                        const gaps = [];
+                        for (let i = 1; i < peaks.length; i++) {
+                            gaps.push(peaks[i] - peaks[i-1]);
+                        }
+                        // 取中位数作为间距
+                        gaps.sort((a, b) => a - b);
+                        const medianGap = gaps[Math.floor(gaps.length / 2)];
+                        if (medianGap >= 5 && medianGap <= 80) {
+                            periods.push(medianGap);
+                        }
+                    }
+                }
+
+                if (periods.length > 0) {
+                    periods.sort((a, b) => a - b);
+                    return periods[Math.floor(periods.length / 2)];
+                }
+
+                // 如果峰值检测失败，尝试自相关法
+                const midY = Math.floor(img.height * 0.4);
                 const scanLine = [];
                 for (let x = 0; x < img.width; x++) {
                     const idx = (midY * img.width + x) * 4;
-                    const brightness = imageData[idx] * 0.299 + imageData[idx+1] * 0.587 + imageData[idx+2] * 0.114;
-                    scanLine.push(brightness);
+                    scanLine.push(fullImageData[idx] * 0.299 + fullImageData[idx+1] * 0.587 + fullImageData[idx+2] * 0.114);
                 }
-
-                // 找到亮度变化的周期（圆珠→间隙→圆珠）
-                // 使用自相关函数
                 const len = scanLine.length;
                 const mean = scanLine.reduce((a,b) => a+b, 0) / len;
-                let bestPeriod = 0;
-                let bestCorr = -Infinity;
-
-                for (let period = 8; period < Math.min(60, len / 4); period++) {
-                    let corr = 0;
-                    let count = 0;
+                let bestPeriod = 0, bestCorr = -Infinity;
+                for (let period = 5; period < Math.min(80, len / 4); period++) {
+                    let corr = 0, count = 0;
                     for (let i = 0; i < len - period; i++) {
                         corr += (scanLine[i] - mean) * (scanLine[i + period] - mean);
                         count++;
                     }
                     corr /= count;
-                    if (corr > bestCorr) {
-                        bestCorr = corr;
-                        bestPeriod = period;
-                    }
+                    if (corr > bestCorr) { bestCorr = corr; bestPeriod = period; }
                 }
-
-                return bestPeriod || 20; // 默认20像素
+                return bestPeriod || 20;
             };
 
-            const cellSize = detectGridParams();
-            console.log(`豆画图纸导入: 检测到圆珠间距约 ${cellSize}px`);
+            const detectedCellSize = detectCellSize();
+            console.log(`豆画图纸导入: 检测到圆珠间距约 ${detectedCellSize}px`);
 
-            // 检测图纸的有效区域（排除标题和图例）
-            // 通常图纸上方有标题，下方有色号图例
-            // 通过检测颜色丰富度来确定有效区域
-            let topY = 0, bottomY = img.height;
+            // ---- 第二步：检测有效区域（排除标题栏和底部图例） ----
+            // 标题栏通常是纯色背景+文字，图例区域有小色块+文字
+            // 有效区域是圆珠密集排列的区域
 
-            // 从上往下扫描，找到第一行有多种颜色的位置
+            let topY = 0, bottomY = img.height, leftX = 0, rightX = img.width;
+
+            // 逐行扫描，找到第一行和最后一行有足够多颜色变化的区域
+            const scanRowColorCount = (y) => {
+                const colors = new Set();
+                for (let x = 0; x < img.width; x += Math.max(1, Math.floor(detectedCellSize / 3))) {
+                    const idx = (y * img.width + Math.min(x, img.width - 1)) * 4;
+                    // 量化颜色以减少噪声
+                    const key = `${Math.floor(fullImageData[idx]/24)},${Math.floor(fullImageData[idx+1]/24)},${Math.floor(fullImageData[idx+2]/24)}`;
+                    colors.add(key);
+                }
+                return colors.size;
+            };
+
+            // 找顶部边界
             for (let y = 0; y < img.height; y++) {
-                const colors = new Set();
-                for (let x = 0; x < img.width; x += cellSize / 2) {
-                    const idx = (y * img.width + Math.floor(x)) * 4;
-                    const key = `${Math.floor(imageData[idx]/32)},${Math.floor(imageData[idx+1]/32)},${Math.floor(imageData[idx+2]/32)}`;
-                    colors.add(key);
-                }
-                if (colors.size > 5) {
-                    topY = Math.max(0, y - cellSize);
+                if (scanRowColorCount(y) >= 4) {
+                    topY = Math.max(0, y - 2);
                     break;
                 }
             }
 
-            // 从下往上扫描，找到最后一行有多种颜色的位置
+            // 找底部边界
             for (let y = img.height - 1; y > topY; y--) {
-                const colors = new Set();
-                for (let x = 0; x < img.width; x += cellSize / 2) {
-                    const idx = (y * img.width + Math.floor(x)) * 4;
-                    const key = `${Math.floor(imageData[idx]/32)},${Math.floor(imageData[idx+1]/32)},${Math.floor(imageData[idx+2]/32)}`;
-                    colors.add(key);
-                }
-                if (colors.size > 5) {
-                    bottomY = Math.min(img.height, y + cellSize);
+                if (scanRowColorCount(y) >= 4) {
+                    bottomY = Math.min(img.height, y + 2);
                     break;
                 }
             }
 
-            // 计算网格尺寸
-            const effectiveWidth = img.width;
+            // ---- 第三步：计算网格尺寸并采样 ----
+            const effectiveWidth = rightX - leftX;
             const effectiveHeight = bottomY - topY;
-            const gridW = Math.round(effectiveWidth / cellSize);
-            const gridH = Math.round(effectiveHeight / cellSize);
-            const size = Math.max(gridW, gridH);
+            const gridW = Math.max(1, Math.round(effectiveWidth / detectedCellSize));
+            const gridH = Math.max(1, Math.round(effectiveHeight / detectedCellSize));
 
-            console.log(`豆画图纸导入: 有效区域 y=${topY}~${bottomY}, 网格 ${gridW}×${gridH}`);
+            console.log(`豆画图纸导入: 有效区域 (${leftX},${topY})~(${rightX},${bottomY}), 网格 ${gridW}×${gridH}`);
 
-            // 采样每个网格中心的颜色，匹配到 Mard 色板
+            // 将有效区域缩放到 gridW × gridH
+            const sampleCanvas = document.createElement('canvas');
+            sampleCanvas.width = gridW;
+            sampleCanvas.height = gridH;
+            const sampleCtx = sampleCanvas.getContext('2d');
+            sampleCtx.imageSmoothingEnabled = false; // 不要平滑，保留圆珠颜色
+            sampleCtx.drawImage(img, leftX, topY, effectiveWidth, effectiveHeight, 0, 0, gridW, gridH);
+            const sampledData = sampleCtx.getImageData(0, 0, gridW, gridH).data;
+
+            // ---- 第四步：识别背景色 ----
+            // 豆画图纸的背景（圆珠间隙）通常是浅灰色 #E8E8E8 ~ #F5F5F5
+            // 但我们不能简单用亮度判断，因为白色拼豆（H1、H2等）也很亮
+            // 策略：统计所有像素颜色，找到最常出现的"间隙色"
+            const colorFreq = {};
+            for (let i = 0; i < gridW * gridH; i++) {
+                const r = sampledData[i*4], g = sampledData[i*4+1], b = sampledData[i*4+2];
+                // 量化到 8 级
+                const key = `${Math.floor(r/32)*32},${Math.floor(g/32)*32},${Math.floor(b/32)*32}`;
+                colorFreq[key] = (colorFreq[key] || 0) + 1;
+            }
+
+            // 找到边缘像素最常出现的颜色作为背景色
+            const edgeColors = {};
+            // 扫描四条边
+            for (let x = 0; x < gridW; x++) {
+                for (const y of [0, gridH - 1]) {
+                    const idx = (y * gridW + x) * 4;
+                    const r = sampledData[idx], g = sampledData[idx+1], b = sampledData[idx+2];
+                    const key = `${Math.floor(r/32)*32},${Math.floor(g/32)*32},${Math.floor(b/32)*32}`;
+                    edgeColors[key] = (edgeColors[key] || 0) + 1;
+                }
+            }
+            for (let y = 0; y < gridH; y++) {
+                for (const x of [0, gridW - 1]) {
+                    const idx = (y * gridW + x) * 4;
+                    const r = sampledData[idx], g = sampledData[idx+1], b = sampledData[idx+2];
+                    const key = `${Math.floor(r/32)*32},${Math.floor(g/32)*32},${Math.floor(b/32)*32}`;
+                    edgeColors[key] = (edgeColors[key] || 0) + 1;
+                }
+            }
+
+            // 边缘最常见的颜色就是背景色
+            let bgColorKey = null;
+            let bgColorCount = 0;
+            for (const [key, count] of Object.entries(edgeColors)) {
+                if (count > bgColorCount) {
+                    bgColorCount = count;
+                    bgColorKey = key;
+                }
+            }
+
+            const bgRGB = bgColorKey ? bgColorKey.split(',').map(Number) : [224, 224, 224];
+            console.log(`豆画图纸导入: 检测到背景色 RGB(${bgRGB.join(',')})`);
+
+            // ---- 第五步：匹配每个像素到 Mard 色号 ----
+            const TRANSPARENT_COLOR = { code: 'NONE', name: '透明', rgb: [220, 220, 220], isTransparent: true };
             const result = [];
-            const TRANSPARENT_COLOR = { code: 'NONE', name: '透明', rgb: [220, 220, 220] };
+            const bgTolerance = 40; // 背景色容差
 
-            for (let gy = 0; gy < gridH; gy++) {
-                for (let gx = 0; gx < gridW; gx++) {
-                    // 采样圆珠中心区域的颜色（取3×3区域的中位数）
-                    const centerX = Math.floor(gx * cellSize + cellSize / 2);
-                    const centerY = Math.floor(topY + gy * cellSize + cellSize / 2);
+            for (let i = 0; i < gridW * gridH; i++) {
+                const r = sampledData[i*4], g = sampledData[i*4+1], b = sampledData[i*4+2];
 
-                    if (centerX >= img.width || centerY >= img.height) {
-                        result.push(TRANSPARENT_COLOR);
-                        continue;
-                    }
+                // 检查是否是背景色
+                const dr = r - bgRGB[0], dg = g - bgRGB[1], db = b - bgRGB[2];
+                const bgDist = Math.sqrt(dr*dr + dg*dg + db*db);
 
-                    // 采样中心区域
-                    const samples = [];
-                    const sampleRadius = Math.max(1, Math.floor(cellSize / 6));
-                    for (let dy = -sampleRadius; dy <= sampleRadius; dy++) {
-                        for (let dx = -sampleRadius; dx <= sampleRadius; dx++) {
-                            const sx = Math.min(img.width - 1, Math.max(0, centerX + dx));
-                            const sy = Math.min(img.height - 1, Math.max(0, centerY + dy));
-                            const idx = (sy * img.width + sx) * 4;
-                            samples.push([imageData[idx], imageData[idx+1], imageData[idx+2]]);
-                        }
-                    }
+                if (bgDist < bgTolerance) {
+                    result.push(TRANSPARENT_COLOR);
+                } else {
+                    result.push(findClosestColor(r, g, b, mardPaletteLab));
+                }
+            }
 
-                    // 取中位数颜色
-                    samples.sort((a, b) => (a[0]+a[1]+a[2]) - (b[0]+b[1]+b[2]));
-                    const median = samples[Math.floor(samples.length / 2)];
-
-                    // 检查是否是背景色（浅灰/白色间隙）
-                    const brightness = median[0] * 0.299 + median[1] * 0.587 + median[2] * 0.114;
-                    if (brightness > 235) {
-                        // 可能是间隙或背景，检查周围是否也是亮色
-                        result.push(TRANSPARENT_COLOR);
+            // ---- 第六步：设置数据并渲染 ----
+            // 使用正方形尺寸（取较大值），多余部分填充透明
+            const size = Math.max(gridW, gridH);
+            const squareResult = [];
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    if (x < gridW && y < gridH) {
+                        squareResult.push(result[y * gridW + x]);
                     } else {
-                        result.push(findClosestColor(median[0], median[1], median[2], mardPaletteLab));
+                        squareResult.push(TRANSPARENT_COLOR);
                     }
                 }
             }
 
-            // 设置 gridData 并渲染
-            gridData = { data: result, size: gridW, width: gridW, height: gridH };
+            originalResult = squareResult.slice();
+            gridData = { data: squareResult, size: size };
 
             // 统计颜色使用情况
             const colorCount = {};
-            for (const c of result) {
-                if (c.code !== 'NONE') {
+            for (const c of squareResult) {
+                if (!c.isTransparent) {
                     colorCount[c.code] = (colorCount[c.code] || 0) + 1;
                 }
             }
             const uniqueColors = Object.keys(colorCount).length;
-            console.log(`豆画图纸导入完成: ${gridW}×${gridH} 网格, ${uniqueColors} 种颜色`);
+            console.log(`豆画图纸导入完成: ${gridW}×${gridH} → ${size}×${size} 网格, ${uniqueColors} 种颜色`);
 
-            renderGrid();
-            alert(`✅ 豆画图纸导入成功！\n\n网格: ${gridW}×${gridH}\n颜色: ${uniqueColors} 种 Mard 色号\n\n已自动转换为方格拼豆图纸。`);
+            // 渲染
+            drawPixelPreview(squareResult, size);
+            currentZoom = 1;
+            drawGrid();
+            showColorStats(squareResult);
+            gridSection.style.display = 'block';
+
+            alert(`✅ 豆画图纸导入成功！\n\n原始网格: ${gridW}×${gridH}\n图纸尺寸: ${size}×${size}\n颜色: ${uniqueColors} 种 Mard 色号\n\n已自动转换为方格拼豆图纸。\n你可以使用颜色替换功能微调结果。`);
         }
     });
     </script>
