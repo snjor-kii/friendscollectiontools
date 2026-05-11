@@ -92,21 +92,34 @@
             display: none;
         }
 
-        .upload-area.bead-chart-upload {
-            padding: 12px 16px;
-            min-height: auto;
-            background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(99,102,241,0.05));
-            border-color: #c4b5fd;
-            border-width: 2px;
+        .upload-mode-switch {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            margin-bottom: 10px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 3px;
         }
-        .upload-area.bead-chart-upload:hover {
-            border-color: #8b5cf6;
-            background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.12));
+        .upload-mode-switch label {
+            flex: 1;
+            text-align: center;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            color: #6b7280;
+            user-select: none;
         }
-        .upload-area.bead-chart-upload.dragover {
-            border-color: #7c3aed;
-            background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(99,102,241,0.2));
-            border-style: solid;
+        .upload-mode-switch input[type="radio"] {
+            display: none;
+        }
+        .upload-mode-switch input[type="radio"]:checked + label {
+            background: #fff;
+            color: #7c3aed;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .settings {
@@ -863,20 +876,16 @@
         <div class="control-panel">
             <div class="control-row">
                 <div class="upload-area" id="uploadArea">
-                    <div class="upload-icon">📷</div>
-                    <p><strong>点击上传图片</strong> 或拖拽图片到此处</p>
-                    <p style="margin-top:4px;font-size:12px;color:#9ca3af;">支持 JPG / PNG / GIF / WebP</p>
-                    <input type="file" id="fileInput" accept="image/*">
-                </div>
-                <div class="upload-area bead-chart-upload" id="beadChartUploadArea" style="margin-top:8px;">
-                    <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-                        <span style="font-size:18px;">📋</span>
-                        <div>
-                            <p style="margin:0;font-size:13px;font-weight:600;color:#7c3aed;">导入豆画图纸（识别色号转方格）</p>
-                            <p style="margin:2px 0 0;font-size:11px;color:#9ca3af;">点击选择 或 拖拽豆画图纸到此处</p>
-                        </div>
+                    <div class="upload-mode-switch">
+                        <input type="radio" name="uploadMode" id="modeNormal" value="normal" checked>
+                        <label for="modeNormal">📷 普通图片</label>
+                        <input type="radio" name="uploadMode" id="modeBeadChart" value="beadchart">
+                        <label for="modeBeadChart">📋 豆画图纸</label>
                     </div>
-                    <input type="file" id="beadChartInput" accept="image/*" style="display:none;">
+                    <div class="upload-icon" id="uploadIcon">📷</div>
+                    <p id="uploadMainText"><strong>点击上传图片</strong> 或拖拽图片到此处</p>
+                    <p id="uploadSubText" style="margin-top:4px;font-size:12px;color:#9ca3af;">支持 JPG / PNG / GIF / WebP</p>
+                    <input type="file" id="fileInput" accept="image/*">
                 </div>
 
                 <div class="settings">
@@ -2800,8 +2809,52 @@
     const loadingOverlay = document.getElementById('loadingOverlay');
     const zoomLevelSpan = document.getElementById('zoomLevel');
 
+    // 上传模式切换
+    const modeNormal = document.getElementById('modeNormal');
+    const modeBeadChart = document.getElementById('modeBeadChart');
+    const uploadIcon = document.getElementById('uploadIcon');
+    const uploadMainText = document.getElementById('uploadMainText');
+    const uploadSubText = document.getElementById('uploadSubText');
+
+    function getUploadMode() {
+        const beadChartRadio = document.getElementById('modeBeadChart');
+        return beadChartRadio && beadChartRadio.checked ? 'beadchart' : 'normal';
+    }
+
+    function updateUploadAreaText() {
+        if (getUploadMode() === 'beadchart') {
+            uploadIcon.textContent = '📋';
+            uploadMainText.innerHTML = '<strong>点击上传豆画图纸</strong> 或拖拽到此处';
+            uploadSubText.textContent = '自动识别色号并转换为方格拼豆图纸';
+        } else {
+            uploadIcon.textContent = '📷';
+            uploadMainText.innerHTML = '<strong>点击上传图片</strong> 或拖拽图片到此处';
+            uploadSubText.textContent = '支持 JPG / PNG / GIF / WebP';
+        }
+    }
+
+    modeNormal.addEventListener('change', updateUploadAreaText);
+    modeBeadChart.addEventListener('change', updateUploadAreaText);
+
+    // 统一的文件处理入口
+    function handleUploadedFile(file) {
+        if (!file.type.startsWith('image/')) {
+            alert('请上传图片文件！');
+            return;
+        }
+        if (getUploadMode() === 'beadchart') {
+            importBeadChart(file);
+        } else {
+            handleFile(file);
+        }
+    }
+
     // 上传事件
-    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('click', (e) => {
+        // 避免点击 radio 按钮时触发文件选择
+        if (e.target.closest('.upload-mode-switch')) return;
+        fileInput.click();
+    });
     uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadArea.classList.add('dragover');
@@ -2813,12 +2866,12 @@
         e.preventDefault();
         uploadArea.classList.remove('dragover');
         if (e.dataTransfer.files.length > 0) {
-            handleFile(e.dataTransfer.files[0]);
+            handleUploadedFile(e.dataTransfer.files[0]);
         }
     });
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            handleFile(e.target.files[0]);
+            handleUploadedFile(e.target.files[0]);
         }
     });
 
@@ -3579,49 +3632,40 @@ const palette = paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : MARD_PALET
         exportPngBtn.disabled = true;
         exportCsvBtn.disabled = true;
         uploadArea.innerHTML = `
-            <div class="upload-icon">📷</div>
-            <p><strong>点击上传图片</strong> 或拖拽图片到此处</p>
-            <p style="margin-top:4px;font-size:12px;color:#9ca3af;">支持 JPG / PNG / GIF / WebP</p>
+            <div class="upload-mode-switch">
+                <input type="radio" name="uploadMode" id="modeNormal" value="normal" checked>
+                <label for="modeNormal">📷 普通图片</label>
+                <input type="radio" name="uploadMode" id="modeBeadChart" value="beadchart">
+                <label for="modeBeadChart">📋 豆画图纸</label>
+            </div>
+            <div class="upload-icon" id="uploadIcon">📷</div>
+            <p id="uploadMainText"><strong>点击上传图片</strong> 或拖拽图片到此处</p>
+            <p id="uploadSubText" style="margin-top:4px;font-size:12px;color:#9ca3af;">支持 JPG / PNG / GIF / WebP</p>
             <input type="file" id="fileInput" accept="image/*">
         `;
+        // 重新绑定模式切换和文件选择事件
+        const newModeNormal = document.getElementById('modeNormal');
+        const newModeBeadChart = document.getElementById('modeBeadChart');
+        const newUploadIcon = document.getElementById('uploadIcon');
+        const newUploadMainText = document.getElementById('uploadMainText');
+        const newUploadSubText = document.getElementById('uploadSubText');
+        newModeNormal.addEventListener('change', () => {
+            newUploadIcon.textContent = '📷';
+            newUploadMainText.innerHTML = '<strong>点击上传图片</strong> 或拖拽图片到此处';
+            newUploadSubText.textContent = '支持 JPG / PNG / GIF / WebP';
+        });
+        newModeBeadChart.addEventListener('change', () => {
+            newUploadIcon.textContent = '📋';
+            newUploadMainText.innerHTML = '<strong>点击上传豆画图纸</strong> 或拖拽到此处';
+            newUploadSubText.textContent = '自动识别色号并转换为方格拼豆图纸';
+        });
         document.getElementById('fileInput').addEventListener('change', (e) => {
-            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+            if (e.target.files.length > 0) handleUploadedFile(e.target.files[0]);
         });
 
         // ============================================================
         // 导入豆画图纸功能 - 识别圆珠图纸中的色号并转换为方格图纸
         // ============================================================
-        const beadChartUploadArea = document.getElementById('beadChartUploadArea');
-        const beadChartInput = document.getElementById('beadChartInput');
-
-        beadChartUploadArea.addEventListener('click', (e) => {
-            if (e.target !== beadChartInput) beadChartInput.click();
-        });
-        beadChartUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            beadChartUploadArea.classList.add('dragover');
-        });
-        beadChartUploadArea.addEventListener('dragleave', () => {
-            beadChartUploadArea.classList.remove('dragover');
-        });
-        beadChartUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            beadChartUploadArea.classList.remove('dragover');
-            if (e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
-                if (file.type.startsWith('image/')) {
-                    importBeadChart(file);
-                } else {
-                    alert('请拖入图片文件！');
-                }
-            }
-        });
-
-        beadChartInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                importBeadChart(e.target.files[0]);
-            }
-        });
 
         function importBeadChart(file) {
             const reader = new FileReader();
