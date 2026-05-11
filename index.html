@@ -3886,6 +3886,14 @@ const palette = paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : MARD_PALET
         const uniqueColors = Object.keys(colorCount).length;
         console.log(`豆画图纸导入完成: ${gridW}×${gridH} → ${size}×${size} 网格, ${uniqueColors} 种颜色`);
 
+        // 设置原始图片预览
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.width = img.width;
+        previewCanvas.height = img.height;
+        previewCanvas.getContext('2d').drawImage(img, 0, 0);
+        originalPreview.src = previewCanvas.toDataURL();
+        previewSection.style.display = 'flex';
+
         drawPixelPreview(squareResult, size);
         currentZoom = 1;
         drawGrid();
