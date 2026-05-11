@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>拼豆图纸生成器 - HAMA / 朋友收集梦想生活</title>
+    <title>拼豆图纸生成器 - Mard 221 / 朋友收集梦想生活</title>
     <style>
         * {
             margin: 0;
@@ -838,7 +838,7 @@
 <body>
     <div class="header">
         <h1>🎨 拼豆图纸生成器</h1>
-        <p>上传图片 → 自动匹配色号 → 生成拼豆图纸（支持 HAMA / 朋友收集梦想生活）</p>
+        <p>上传图片 → 自动匹配色号 → 生成拼豆图纸（支持 Mard 221 / 朋友收集梦想生活）</p>
     </div>
 
     <div class="container">
@@ -851,12 +851,18 @@
                     <p style="margin-top:4px;font-size:12px;color:#9ca3af;">支持 JPG / PNG / GIF / WebP</p>
                     <input type="file" id="fileInput" accept="image/*">
                 </div>
+                <div style="margin-top:8px;text-align:center;">
+                    <button id="importBeadChartBtn" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;">
+                        📋 导入豆画图纸（识别色号转方格）
+                    </button>
+                    <input type="file" id="beadChartInput" accept="image/*" style="display:none;">
+                </div>
 
                 <div class="settings">
                     <div class="setting-group">
                         <label>图纸尺寸：</label>
                         <select id="gridSize">
-                            <option value="32">32 × 32（动森标准）</option>
+                            <option value="32">32 × 32（朋友收集）</option>
                             <option value="48">48 × 48</option>
                             <option value="64">64 × 64</option>
                             <option value="96">96 × 96</option>
@@ -935,9 +941,8 @@
                     <div class="setting-group">
                         <label>色板模式：</label>
                         <select id="paletteMode">
-                            <option value="hama" selected>HAMA Midi 全色（约90色）</option>
+                            <option value="mard" selected>Mard 221（221色 · CAM16-UCS）</option>
                             <option value="friendmaker">朋友收集梦想生活（84色）</option>
-                            <option value="acnh">动森调色板（159色）</option>
                         </select>
                     </div>
                     <div class="setting-group">
@@ -1013,8 +1018,9 @@
             </div>
 
             <div class="tip">
-                💡 <strong>提示：</strong>HAMA Midi 221 是 HAMA 拼豆的色号体系。生成的图纸每个格子对应一颗拼豆，格子内标注的数字即为 HAMA 色号。<br>
+                💡 <strong>提示：</strong>默认使用 <strong>Mard 221</strong> 拼豆色板（9大系列共221色），采用 <strong>CAM16-UCS</strong> 色彩外观模型进行颜色匹配，效果远优于传统 Lab 色差。色号格式如 A6、B26、G14、H5 等，对应 Mard 品牌实体拼豆色号。<br>
                 🎮 <strong>朋友收集梦想生活：</strong>选择"朋友收集梦想生活"色板后，将使用游戏内官方 7×12 共 84 色调色板。色号格式为 <code>R行C列</code>（如 R4C8 = 第4行第8列），对应游戏中调色盘的位置，方便你直接照着画。<br>
+                📷 <strong>导入豆画图纸：</strong>支持直接上传豆画/Mard app 生成的圆珠图纸，自动识别色号并转换为方格拼豆图纸。<br>
                 🧩 <strong>色块分割（核心）：</strong>使用 SLIC 超像素算法将图片先分割成大的色块区域，每个色块统一用一种颜色。"色块大小"越大色块越大越简洁，"颜色权重"越大越倾向按颜色分割。<br>
                 ✏️ <strong>线稿模式（NEW）：</strong>专为简笔画、漫画线稿、手绘图设计。先用自适应阈值提取线条，再对非线条区域聚类填色，保证线条清晰不断裂。"线条阈值"越高越容易识别为线条，"线条加粗"让线条在低分辨率下更清晰。<br>
                 ✏️ <strong>描边（精髓）：</strong>用 Sobel 边缘检测自动识别颜色变化剧烈的边界，包括外轮廓和内部线条（五官、头发、衣服褶皱等），用深色描边让图案轮廓清晰。"灵敏度"越低描边越多越细致。<br>
@@ -1401,158 +1407,134 @@
     }
 
     // ============================================================
-    // HAMA Midi Beads 色板 - 基于 HAMA 官方色号
-    // 格式: { code: 色号, name: 名称, rgb: [R, G, B] }
+    // Mard 221 拼豆色板 - 9大系列共221色
+    // 数据来源: github.com/pie1030/pindou
+    // A=黄/橙, B=绿, C=蓝/青, D=紫, E=粉/玫瑰, F=红/暖, G=棕/肤, H=灰/白, M=莫兰迪
     // ============================================================
-    const HAMA_PALETTE = [
-        { code: "01", name: "White", rgb: [245, 243, 237] },
-        { code: "02", name: "Cream", rgb: [237, 224, 186] },
-        { code: "03", name: "Yellow", rgb: [248, 213, 16] },
-        { code: "04", name: "Orange", rgb: [240, 130, 0] },
-        { code: "05", name: "Red", rgb: [207, 0, 33] },
-        { code: "06", name: "Pink", rgb: [236, 118, 154] },
-        { code: "07", name: "Purple", rgb: [115, 46, 108] },
-        { code: "08", name: "Blue", rgb: [0, 105, 180] },
-        { code: "09", name: "Light Blue", rgb: [0, 160, 218] },
-        { code: "10", name: "Green", rgb: [0, 150, 64] },
-        { code: "11", name: "Light Green", rgb: [75, 185, 72] },
-        { code: "12", name: "Brown", rgb: [101, 60, 18] },
-        { code: "17", name: "Grey", rgb: [134, 134, 130] },
-        { code: "18", name: "Black", rgb: [41, 41, 41] },
-        { code: "20", name: "Rust", rgb: [152, 54, 18] },
-        { code: "21", name: "Light Brown", rgb: [175, 121, 58] },
-        { code: "22", name: "Dark Red", rgb: [140, 0, 26] },
-        { code: "26", name: "Flesh", rgb: [214, 168, 117] },
-        { code: "27", name: "Beige", rgb: [208, 189, 127] },
-        { code: "28", name: "Dark Green", rgb: [0, 100, 47] },
-        { code: "29", name: "Raspberry", rgb: [178, 0, 80] },
-        { code: "30", name: "Burgundy", rgb: [97, 0, 30] },
-        { code: "31", name: "Turquoise", rgb: [0, 140, 140] },
-        { code: "33", name: "Claret", rgb: [120, 0, 42] },
-        { code: "43", name: "Pastel Yellow", rgb: [255, 236, 149] },
-        { code: "44", name: "Pastel Red", rgb: [237, 156, 142] },
-        { code: "45", name: "Pastel Purple", rgb: [160, 130, 175] },
-        { code: "46", name: "Pastel Blue", rgb: [130, 180, 210] },
-        { code: "47", name: "Pastel Green", rgb: [140, 200, 150] },
-        { code: "48", name: "Pastel Pink", rgb: [240, 175, 190] },
-        { code: "49", name: "Azure", rgb: [0, 80, 140] },
-        { code: "60", name: "Teddy Bear", rgb: [180, 110, 50] },
-        { code: "70", name: "Light Grey", rgb: [180, 180, 178] },
-        { code: "71", name: "Dark Grey", rgb: [90, 90, 88] },
-        { code: "75", name: "Tan", rgb: [140, 100, 60] },
-        { code: "76", name: "Plum", rgb: [80, 30, 70] },
-        { code: "77", name: "Olive", rgb: [100, 110, 50] },
-        { code: "78", name: "Light Pink", rgb: [245, 200, 210] },
-        { code: "79", name: "Kiwi", rgb: [160, 210, 60] },
-        { code: "82", name: "Plum (dark)", rgb: [60, 20, 50] },
-        { code: "83", name: "Dark Blue", rgb: [0, 50, 100] },
-        { code: "84", name: "Sand", rgb: [195, 175, 130] },
-        { code: "95", name: "Lavender", rgb: [150, 120, 180] },
-        { code: "96", name: "Lilac", rgb: [180, 150, 200] },
-        { code: "97", name: "Pastel Maize", rgb: [255, 245, 180] },
-        { code: "98", name: "Pastel Mint", rgb: [180, 230, 190] },
-        { code: "H38", name: "Neon Yellow", rgb: [255, 255, 0] },
-        { code: "H39", name: "Neon Red", rgb: [255, 50, 50] },
-        { code: "H40", name: "Neon Orange", rgb: [255, 160, 0] },
-        { code: "H41", name: "Neon Green", rgb: [0, 255, 80] },
-        { code: "H42", name: "Neon Pink", rgb: [255, 80, 180] },
-        { code: "H47", name: "Neon Blue", rgb: [0, 130, 255] },
-        { code: "H51", name: "Glow Green", rgb: [200, 240, 200] },
-        { code: "H55", name: "Glow Blue", rgb: [180, 210, 240] },
-        { code: "H56", name: "Glow Red", rgb: [240, 200, 200] },
-        { code: "H57", name: "Glow Yellow", rgb: [240, 240, 200] },
-        { code: "C01", name: "Pearl White", rgb: [235, 235, 230] },
-        { code: "C02", name: "Pearl Yellow", rgb: [240, 230, 160] },
-        { code: "C03", name: "Pearl Orange", rgb: [230, 170, 100] },
-        { code: "C04", name: "Pearl Red", rgb: [220, 120, 130] },
-        { code: "C05", name: "Pearl Pink", rgb: [230, 180, 200] },
-        { code: "C06", name: "Pearl Blue", rgb: [140, 170, 210] },
-        { code: "C07", name: "Pearl Green", rgb: [130, 190, 150] },
-        { code: "C08", name: "Pearl Purple", rgb: [170, 140, 190] },
-        { code: "C09", name: "Pearl Light Blue", rgb: [170, 200, 220] },
-        { code: "C10", name: "Pearl Gold", rgb: [210, 190, 120] },
-        { code: "T01", name: "Trans White", rgb: [230, 230, 225] },
-        { code: "T02", name: "Trans Red", rgb: [200, 60, 60] },
-        { code: "T03", name: "Trans Blue", rgb: [60, 100, 180] },
-        { code: "T04", name: "Trans Green", rgb: [60, 160, 80] },
-        { code: "T05", name: "Trans Yellow", rgb: [230, 210, 60] },
-        { code: "T06", name: "Trans Orange", rgb: [220, 140, 40] },
-        { code: "T07", name: "Trans Purple", rgb: [130, 60, 140] },
-        { code: "T08", name: "Trans Pink", rgb: [220, 130, 160] },
-        { code: "T09", name: "Trans Dark Blue", rgb: [40, 60, 120] },
-        { code: "S01", name: "Striped White/Red", rgb: [230, 180, 180] },
-        { code: "S02", name: "Striped White/Blue", rgb: [180, 200, 230] },
-        { code: "S03", name: "Striped White/Green", rgb: [180, 220, 190] },
-        { code: "S04", name: "Striped Yellow/Red", rgb: [230, 180, 80] },
-        { code: "S05", name: "Striped Red/Blue", rgb: [150, 80, 150] },
-        { code: "S06", name: "Striped Green/Blue", rgb: [60, 150, 150] },
-        { code: "S07", name: "Striped Yellow/Green", rgb: [180, 210, 80] },
-        { code: "S08", name: "Striped Orange/Brown", rgb: [180, 120, 50] },
-        { code: "S09", name: "Striped Black/White", rgb: [150, 150, 148] },
-        { code: "S10", name: "Striped Pink/Purple", rgb: [200, 140, 180] },
-        { code: "M01", name: "Gold Metallic", rgb: [200, 170, 80] },
-        { code: "M02", name: "Silver Metallic", rgb: [170, 175, 180] },
-        { code: "M03", name: "Bronze Metallic", rgb: [160, 120, 70] },
-        { code: "M04", name: "Red Metallic", rgb: [180, 60, 60] },
-        { code: "M05", name: "Blue Metallic", rgb: [60, 90, 160] },
-        { code: "M06", name: "Green Metallic", rgb: [60, 130, 70] },
+    const MARD_PALETTE = [
+        // A — 黄/橙系 (26色)
+        { code: "A1", name: "浅黄", rgb: [250,245,205] }, { code: "A2", name: "嫩黄", rgb: [252,254,214] },
+        { code: "A3", name: "柠檬黄", rgb: [252,255,146] }, { code: "A4", name: "明黄", rgb: [247,236,92] },
+        { code: "A5", name: "金黄", rgb: [240,216,58] }, { code: "A6", name: "橙黄", rgb: [253,169,81] },
+        { code: "A7", name: "橘色", rgb: [250,140,79] }, { code: "A8", name: "向日葵", rgb: [251,218,77] },
+        { code: "A9", name: "杏橙", rgb: [247,157,95] }, { code: "A10", name: "橙色", rgb: [244,126,56] },
+        { code: "A11", name: "浅杏", rgb: [254,219,153] }, { code: "A12", name: "珊瑚橙", rgb: [253,162,118] },
+        { code: "A13", name: "芒果", rgb: [254,198,103] }, { code: "A14", name: "朱红", rgb: [247,88,66] },
+        { code: "A15", name: "鹅黄", rgb: [251,246,94] }, { code: "A16", name: "奶黄", rgb: [254,255,151] },
+        { code: "A17", name: "蛋黄", rgb: [253,225,115] }, { code: "A18", name: "肤橙", rgb: [252,191,128] },
+        { code: "A19", name: "三文鱼", rgb: [253,126,119] }, { code: "A20", name: "琥珀", rgb: [249,214,102] },
+        { code: "A21", name: "奶油黄", rgb: [250,227,147] }, { code: "A22", name: "青柠", rgb: [237,248,120] },
+        { code: "A23", name: "裸粉", rgb: [228,200,186] }, { code: "A24", name: "嫩绿黄", rgb: [243,246,169] },
+        { code: "A25", name: "香蕉", rgb: [253,247,133] }, { code: "A26", name: "深金", rgb: [255,199,52] },
+        // B — 绿系 (32色)
+        { code: "B1", name: "黄绿", rgb: [223,241,59] }, { code: "B2", name: "荧光绿", rgb: [100,243,67] },
+        { code: "B3", name: "薄荷绿", rgb: [161,245,134] }, { code: "B4", name: "草绿", rgb: [95,223,52] },
+        { code: "B5", name: "翠绿", rgb: [57,225,88] }, { code: "B6", name: "碧绿", rgb: [100,224,164] },
+        { code: "B7", name: "松石绿", rgb: [62,174,124] }, { code: "B8", name: "森林绿", rgb: [29,155,84] },
+        { code: "B9", name: "墨绿", rgb: [42,80,55] }, { code: "B10", name: "浅碧", rgb: [154,209,186] },
+        { code: "B11", name: "橄榄", rgb: [98,112,50] }, { code: "B12", name: "深绿", rgb: [26,110,61] },
+        { code: "B13", name: "嫩芽", rgb: [200,232,125] }, { code: "B14", name: "苹果绿", rgb: [171,232,79] },
+        { code: "B15", name: "暗绿", rgb: [48,83,53] }, { code: "B16", name: "浅薄荷", rgb: [192,237,156] },
+        { code: "B17", name: "抹茶", rgb: [158,179,62] }, { code: "B18", name: "柠绿", rgb: [230,237,79] },
+        { code: "B19", name: "湖绿", rgb: [38,183,142] }, { code: "B20", name: "淡绿", rgb: [203,236,207] },
+        { code: "B21", name: "深青", rgb: [24,97,106] }, { code: "B22", name: "墨青", rgb: [10,66,65] },
+        { code: "B23", name: "暗橄榄", rgb: [52,59,26] }, { code: "B24", name: "浅柠绿", rgb: [232,250,166] },
+        { code: "B25", name: "灰绿", rgb: [78,132,109] }, { code: "B26", name: "黄褐绿", rgb: [144,124,53] },
+        { code: "B27", name: "豆绿", rgb: [208,224,175] }, { code: "B28", name: "玉绿", rgb: [158,229,187] },
+        { code: "B29", name: "青苹果", rgb: [198,223,95] }, { code: "B30", name: "浅芽绿", rgb: [227,251,177] },
+        { code: "B31", name: "春绿", rgb: [180,230,145] }, { code: "B32", name: "苔绿", rgb: [146,173,96] },
+        // C — 蓝/青系 (29色)
+        { code: "C1", name: "冰绿", rgb: [240,254,228] }, { code: "C2", name: "浅天蓝", rgb: [171,248,254] },
+        { code: "C3", name: "天蓝", rgb: [162,224,247] }, { code: "C4", name: "晴空蓝", rgb: [68,205,251] },
+        { code: "C5", name: "湖蓝", rgb: [6,170,223] }, { code: "C6", name: "钴蓝", rgb: [84,167,233] },
+        { code: "C7", name: "宝蓝", rgb: [57,119,202] }, { code: "C8", name: "深蓝", rgb: [15,82,189] },
+        { code: "C9", name: "靛蓝", rgb: [51,73,195] }, { code: "C10", name: "碧蓝", rgb: [60,188,227] },
+        { code: "C11", name: "青绿", rgb: [42,222,211] }, { code: "C12", name: "藏青", rgb: [30,51,78] },
+        { code: "C13", name: "浅蓝", rgb: [205,231,254] }, { code: "C14", name: "冰蓝", rgb: [213,252,247] },
+        { code: "C15", name: "孔雀蓝", rgb: [33,197,196] }, { code: "C16", name: "海军蓝", rgb: [24,88,162] },
+        { code: "C17", name: "荧光蓝", rgb: [2,209,243] }, { code: "C18", name: "深藏青", rgb: [33,50,68] },
+        { code: "C19", name: "青蓝", rgb: [24,134,157] }, { code: "C20", name: "钢蓝", rgb: [26,112,169] },
+        { code: "C21", name: "婴儿蓝", rgb: [188,221,252] }, { code: "C22", name: "灰蓝", rgb: [107,177,187] },
+        { code: "C23", name: "粉蓝", rgb: [200,226,253] }, { code: "C24", name: "天际蓝", rgb: [126,197,249] },
+        { code: "C25", name: "薄荷蓝", rgb: [169,232,224] }, { code: "C26", name: "水蓝", rgb: [66,173,207] },
+        { code: "C27", name: "雾蓝", rgb: [208,222,249] }, { code: "C28", name: "灰紫蓝", rgb: [189,206,232] },
+        { code: "C29", name: "暗蓝", rgb: [54,74,137] },
+        // D — 紫系 (26色)
+        { code: "D1", name: "淡紫", rgb: [172,183,239] }, { code: "D2", name: "薰衣草", rgb: [134,141,211] },
+        { code: "D3", name: "蓝紫", rgb: [53,84,175] }, { code: "D4", name: "深紫蓝", rgb: [22,45,123] },
+        { code: "D5", name: "亮紫", rgb: [179,78,198] }, { code: "D6", name: "浅紫", rgb: [179,123,220] },
+        { code: "D7", name: "葡萄紫", rgb: [135,88,169] }, { code: "D8", name: "丁香", rgb: [227,210,254] },
+        { code: "D9", name: "藤紫", rgb: [213,185,244] }, { code: "D10", name: "暗紫", rgb: [48,26,73] },
+        { code: "D11", name: "灰紫", rgb: [190,185,226] }, { code: "D12", name: "粉紫", rgb: [220,153,206] },
+        { code: "D13", name: "品红", rgb: [181,3,141] }, { code: "D14", name: "紫红", rgb: [134,41,147] },
+        { code: "D15", name: "深靛", rgb: [47,31,140] }, { code: "D16", name: "银紫", rgb: [226,228,240] },
+        { code: "D17", name: "冰紫", rgb: [199,211,249] }, { code: "D18", name: "兰紫", rgb: [154,100,184] },
+        { code: "D19", name: "淡粉紫", rgb: [216,194,217] }, { code: "D20", name: "鲜紫", rgb: [154,53,173] },
+        { code: "D21", name: "浓紫", rgb: [148,5,149] }, { code: "D22", name: "蓝靛", rgb: [56,56,154] },
+        { code: "D23", name: "浅丁香", rgb: [234,219,248] }, { code: "D24", name: "矢车菊", rgb: [118,138,225] },
+        { code: "D25", name: "皇家紫", rgb: [73,80,194] }, { code: "D26", name: "雾紫", rgb: [214,198,235] },
+        // E — 粉/玫瑰系 (24色)
+        { code: "E1", name: "浅粉", rgb: [246,212,203] }, { code: "E2", name: "樱花粉", rgb: [252,193,221] },
+        { code: "E3", name: "粉紫", rgb: [246,189,232] }, { code: "E4", name: "玫红", rgb: [232,100,158] },
+        { code: "E5", name: "桃粉", rgb: [240,86,159] }, { code: "E6", name: "玫瑰红", rgb: [235,65,114] },
+        { code: "E7", name: "深玫红", rgb: [197,54,116] }, { code: "E8", name: "婴儿粉", rgb: [253,219,233] },
+        { code: "E9", name: "洋红", rgb: [227,118,199] }, { code: "E10", name: "紫玫红", rgb: [209,59,149] },
+        { code: "E11", name: "裸粉", rgb: [247,218,212] }, { code: "E12", name: "桃红", rgb: [246,147,191] },
+        { code: "E13", name: "深品红", rgb: [181,2,106] }, { code: "E14", name: "杏粉", rgb: [250,212,191] },
+        { code: "E15", name: "淡玫瑰", rgb: [245,201,202] }, { code: "E16", name: "象牙粉", rgb: [251,244,236] },
+        { code: "E17", name: "浅玫瑰", rgb: [247,227,236] }, { code: "E18", name: "粉红", rgb: [249,200,219] },
+        { code: "E19", name: "蔷薇", rgb: [246,187,209] }, { code: "E20", name: "灰粉", rgb: [215,198,206] },
+        { code: "E21", name: "藕粉", rgb: [192,157,164] }, { code: "E22", name: "暗粉", rgb: [179,140,159] },
+        { code: "E23", name: "灰玫瑰", rgb: [147,125,138] }, { code: "E24", name: "淡紫粉", rgb: [222,190,229] },
+        // F — 红/暖系 (25色)
+        { code: "F1", name: "珊瑚红", rgb: [254,147,129] }, { code: "F2", name: "正红", rgb: [246,61,75] },
+        { code: "F3", name: "朱砂", rgb: [238,78,62] }, { code: "F4", name: "鲜红", rgb: [251,42,64] },
+        { code: "F5", name: "大红", rgb: [225,3,40] }, { code: "F6", name: "暗红", rgb: [145,54,53] },
+        { code: "F7", name: "酒红", rgb: [145,25,50] }, { code: "F8", name: "深红", rgb: [187,1,38] },
+        { code: "F9", name: "浅红", rgb: [224,103,122] }, { code: "F10", name: "棕红", rgb: [135,70,40] },
+        { code: "F11", name: "暗棕红", rgb: [89,35,35] }, { code: "F12", name: "西瓜红", rgb: [243,83,107] },
+        { code: "F13", name: "橙红", rgb: [244,92,69] }, { code: "F14", name: "浅珊瑚", rgb: [252,173,178] },
+        { code: "F15", name: "中国红", rgb: [213,5,39] }, { code: "F16", name: "肤粉", rgb: [248,192,169] },
+        { code: "F17", name: "暖杏", rgb: [232,155,125] }, { code: "F18", name: "赤陶", rgb: [208,127,74] },
+        { code: "F19", name: "砖红", rgb: [190,69,74] }, { code: "F20", name: "灰粉红", rgb: [198,148,149] },
+        { code: "F21", name: "浅桃", rgb: [242,184,198] }, { code: "F22", name: "淡桃", rgb: [247,195,208] },
+        { code: "F23", name: "番茄", rgb: [237,128,108] }, { code: "F24", name: "灰玫", rgb: [224,157,175] },
+        { code: "F25", name: "石榴红", rgb: [232,72,84] },
+        // G — 棕/肤系 (21色)
+        { code: "G1", name: "奶白", rgb: [255,228,211] }, { code: "G2", name: "浅肤", rgb: [252,198,172] },
+        { code: "G3", name: "肤色", rgb: [241,196,165] }, { code: "G4", name: "小麦", rgb: [220,179,135] },
+        { code: "G5", name: "金棕", rgb: [231,179,78] }, { code: "G6", name: "蜂蜜", rgb: [227,160,20] },
+        { code: "G7", name: "棕色", rgb: [152,92,58] }, { code: "G8", name: "深棕", rgb: [113,61,47] },
+        { code: "G9", name: "驼色", rgb: [228,182,133] }, { code: "G10", name: "焦糖", rgb: [218,140,66] },
+        { code: "G11", name: "米色", rgb: [218,200,152] }, { code: "G12", name: "杏色", rgb: [254,201,147] },
+        { code: "G13", name: "咖啡", rgb: [178,113,75] }, { code: "G14", name: "深咖", rgb: [139,104,76] },
+        { code: "G15", name: "象牙", rgb: [246,248,227] }, { code: "G16", name: "奶茶", rgb: [242,216,193] },
+        { code: "G17", name: "可可", rgb: [119,84,78] }, { code: "G18", name: "浅杏白", rgb: [255,227,213] },
+        { code: "G19", name: "橙棕", rgb: [221,125,65] }, { code: "G20", name: "红棕", rgb: [165,69,47] },
+        { code: "G21", name: "灰棕", rgb: [179,133,97] },
+        // H — 灰/白系 (23色)
+        { code: "H1", name: "纯白", rgb: [255,255,255] }, { code: "H2", name: "雪白", rgb: [251,251,251] },
+        { code: "H3", name: "浅灰", rgb: [180,180,180] }, { code: "H4", name: "中灰", rgb: [135,135,135] },
+        { code: "H5", name: "深灰", rgb: [70,70,72] }, { code: "H6", name: "炭灰", rgb: [44,44,44] },
+        { code: "H7", name: "纯黑", rgb: [1,1,1] }, { code: "H8", name: "粉灰", rgb: [231,214,220] },
+        { code: "H9", name: "银灰", rgb: [239,237,238] }, { code: "H10", name: "珍珠白", rgb: [235,235,235] },
+        { code: "H11", name: "灰白", rgb: [205,205,205] }, { code: "H12", name: "暖白", rgb: [253,246,238] },
+        { code: "H13", name: "淡粉灰", rgb: [244,237,241] }, { code: "H14", name: "青灰", rgb: [206,215,212] },
+        { code: "H15", name: "石灰", rgb: [154,166,166] }, { code: "H16", name: "墨黑", rgb: [27,18,19] },
+        { code: "H17", name: "月白", rgb: [240,238,239] }, { code: "H18", name: "冷白", rgb: [252,255,246] },
+        { code: "H19", name: "暖灰", rgb: [242,238,229] }, { code: "H20", name: "铅灰", rgb: [150,160,159] },
+        { code: "H21", name: "嫩绿白", rgb: [248,251,230] }, { code: "H22", name: "蓝灰", rgb: [202,202,210] },
+        { code: "H23", name: "橄榄灰", rgb: [155,156,148] },
+        // M — 莫兰迪系 (15色)
+        { code: "M1", name: "灰绿", rgb: [187,198,182] }, { code: "M2", name: "灰青", rgb: [144,153,148] },
+        { code: "M3", name: "深灰青", rgb: [105,126,129] }, { code: "M4", name: "米灰", rgb: [224,212,188] },
+        { code: "M5", name: "沙灰", rgb: [209,204,175] }, { code: "M6", name: "橄榄灰", rgb: [176,170,134] },
+        { code: "M7", name: "暖灰", rgb: [176,167,150] }, { code: "M8", name: "灰粉", rgb: [174,128,130] },
+        { code: "M9", name: "驼灰", rgb: [166,136,98] }, { code: "M10", name: "灰紫", rgb: [196,179,187] },
+        { code: "M11", name: "暗紫灰", rgb: [157,118,147] }, { code: "M12", name: "深灰紫", rgb: [100,75,81] },
+        { code: "M13", name: "焦糖灰", rgb: [199,146,102] }, { code: "M14", name: "砖灰", rgb: [194,117,99] },
+        { code: "M15", name: "青灰", rgb: [116,125,122] },
     ];
-
-    // ============================================================
-    // 动物森友会 (ACNH) 调色板 - 15色相 × 15明度变化
-    // 游戏中自定义设计使用的完整调色板
-    // ============================================================
-    const ACNH_PALETTE = (() => {
-        const palette = [];
-        const hues = [
-            { name: "红", h: 0 },
-            { name: "橙", h: 25 },
-            { name: "黄", h: 50 },
-            { name: "黄绿", h: 75 },
-            { name: "绿", h: 120 },
-            { name: "蓝绿", h: 160 },
-            { name: "浅蓝", h: 190 },
-            { name: "蓝", h: 220 },
-            { name: "紫蓝", h: 250 },
-            { name: "紫", h: 280 },
-            { name: "紫红", h: 310 },
-            { name: "粉", h: 340 },
-            { name: "白", h: -1 },
-            { name: "灰", h: -2 },
-            { name: "黑", h: -3 },
-        ];
-
-        hues.forEach((hue, hi) => {
-            for (let vi = 0; vi < 15; vi++) {
-                let r, g, b, code;
-                if (hue.h === -1) {
-                    const l = 255 - vi * 8;
-                    r = g = b = l;
-                    code = `W${vi + 1}`;
-                } else if (hue.h === -2) {
-                    const l = 200 - vi * 12;
-                    r = g = b = Math.max(0, l);
-                    code = `G${vi + 1}`;
-                } else if (hue.h === -3) {
-                    const l = 80 - vi * 5;
-                    r = g = b = Math.max(0, l);
-                    code = `K${vi + 1}`;
-                } else {
-                    const s = 0.3 + (vi < 8 ? vi * 0.1 : (14 - vi) * 0.1);
-                    const l = 0.85 - vi * 0.045;
-                    const rgb = hslToRgb(hue.h / 360, Math.min(1, s), Math.max(0.15, l));
-                    r = rgb[0]; g = rgb[1]; b = rgb[2];
-                    code = `${hi + 1}-${vi + 1}`;
-                }
-                palette.push({
-                    code: code,
-                    name: `${hue.name}${vi + 1}`,
-                    rgb: [Math.round(r), Math.round(g), Math.round(b)]
-                });
-            }
-        });
-        return palette;
-    })();
 
     // ============================================================
     // 《朋友收集梦想生活》官方调色板 - 7行×12列 共84色
@@ -1586,32 +1568,12 @@
         return palette;
     })();
 
-    // HSL 转 RGB
-    function hslToRgb(h, s, l) {
-        let r, g, b;
-        if (s === 0) {
-            r = g = b = l;
-        } else {
-            const hue2rgb = (p, q, t) => {
-                if (t < 0) t += 1;
-                if (t > 1) t -= 1;
-                if (t < 1/6) return p + (q - p) * 6 * t;
-                if (t < 1/2) return q;
-                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-                return p;
-            };
-            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-            const p = 2 * l - q;
-            r = hue2rgb(p, q, h + 1/3);
-            g = hue2rgb(p, q, h);
-            b = hue2rgb(p, q, h - 1/3);
-        }
-        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    }
+    // ============================================================
+    // 颜色距离计算 - CAM16-UCS (色彩外观模型，比CIE76/CIEDE2000更精确)
+    // CAM16-UCS 考虑了人眼的亮度适应、色彩恒常性等感知特性
+    // ============================================================
 
-    // ============================================================
-    // 颜色距离计算 (CIE76 Lab 色差)
-    // ============================================================
+    // RGB → CIE Lab (保留供边缘检测等功能使用)
     function rgbToLab(r, g, b) {
         let rr = r / 255, gg = g / 255, bb = b / 255;
         rr = rr > 0.04045 ? Math.pow((rr + 0.055) / 1.055, 2.4) : rr / 12.92;
@@ -1626,22 +1588,146 @@
         return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
     }
 
+    // ---- CAM16-UCS 实现 ----
+    // 参考: Li et al. (2017) "Uniform colour spaces based on CIECAM02 and CAM16"
+    const CAM16_ENV = (() => {
+        // 标准观察条件: D65光源, 平均环境, 适应亮度64 cd/m²
+        const XW = 95.047, YW = 100.0, ZW = 108.883; // D65白点
+        const LA = 64; // 适应亮度
+        const YB = 20; // 背景相对亮度
+        const c = 0.69, Nc = 1.0, F = 1.0; // 平均环境
+
+        // M16 矩阵 (Hunt-Pointer-Estevez 色适应变换)
+        const M16 = [
+            [0.401288, 0.650173, -0.051461],
+            [-0.250268, 1.204414, 0.045854],
+            [-0.002079, 0.048952, 0.953127]
+        ];
+        const M16_INV = [
+            [1.8620678, -1.0112547, 0.1491867],
+            [0.3875265, 0.6214474, -0.0089739],
+            [-0.0158415, -0.0344317, 1.0502732]
+        ];
+
+        // 计算适应因子D
+        const D = F * (1 - (1/3.6) * Math.exp((-LA - 42) / 92));
+        const Dclamp = Math.min(1, Math.max(0, D));
+
+        // 白点的锥体响应
+        const rgbW = [
+            M16[0][0]*XW + M16[0][1]*YW + M16[0][2]*ZW,
+            M16[1][0]*XW + M16[1][1]*YW + M16[1][2]*ZW,
+            M16[2][0]*XW + M16[2][1]*YW + M16[2][2]*ZW
+        ];
+
+        // 色适应增益
+        const DR = Dclamp * (YW / rgbW[0]) + 1 - Dclamp;
+        const DG = Dclamp * (YW / rgbW[1]) + 1 - Dclamp;
+        const DB = Dclamp * (YW / rgbW[2]) + 1 - Dclamp;
+
+        const k = 1 / (5 * LA + 1);
+        const k4 = k * k * k * k;
+        const FL = k4 * LA + 0.1 * (1 - k4) * (1 - k4) * Math.pow(5 * LA, 1/3);
+        const n = YB / YW;
+        const z = 1.48 + Math.sqrt(n);
+        const Nbb = 0.725 * Math.pow(1/n, 0.2);
+        const Ncb = Nbb;
+
+        // 白点适应后的响应
+        const rgbWc = [rgbW[0] * DR, rgbW[1] * DG, rgbW[2] * DB];
+        const adaptComponent = (x) => {
+            const xAbs = Math.abs(x);
+            const p = Math.pow(FL * xAbs / 100, 0.42);
+            return Math.sign(x) * 400 * p / (p + 27.13) + 0.1;
+        };
+        const rgbAw = [adaptComponent(rgbWc[0]), adaptComponent(rgbWc[1]), adaptComponent(rgbWc[2])];
+        const Aw = (2 * rgbAw[0] + rgbAw[1] + rgbAw[2] / 20 - 0.305) * Nbb;
+
+        return { M16, DR, DG, DB, FL, c, Nc, z, Nbb, Ncb, Aw, n };
+    })();
+
+    // RGB → CAM16-UCS (J', a', b')
+    function rgbToCAM16UCS(r, g, b) {
+        const env = CAM16_ENV;
+        // sRGB → linear RGB → XYZ
+        let rr = r / 255, gg = g / 255, bb = b / 255;
+        rr = rr > 0.04045 ? Math.pow((rr + 0.055) / 1.055, 2.4) : rr / 12.92;
+        gg = gg > 0.04045 ? Math.pow((gg + 0.055) / 1.055, 2.4) : gg / 12.92;
+        bb = bb > 0.04045 ? Math.pow((bb + 0.055) / 1.055, 2.4) : bb / 12.92;
+        const X = (rr * 0.4124564 + gg * 0.3575761 + bb * 0.1804375) * 100;
+        const Y = (rr * 0.2126729 + gg * 0.7151522 + bb * 0.0721750) * 100;
+        const Z = (rr * 0.0193339 + gg * 0.1191920 + bb * 0.9503041) * 100;
+
+        // XYZ → 锥体响应 (M16变换)
+        const rC = env.M16[0][0]*X + env.M16[0][1]*Y + env.M16[0][2]*Z;
+        const gC = env.M16[1][0]*X + env.M16[1][1]*Y + env.M16[1][2]*Z;
+        const bC = env.M16[2][0]*X + env.M16[2][1]*Y + env.M16[2][2]*Z;
+
+        // 色适应
+        const rA = rC * env.DR;
+        const gA = gC * env.DG;
+        const bA = bC * env.DB;
+
+        // 非线性压缩 (Hunt效应)
+        const adapt = (x) => {
+            const xAbs = Math.abs(x);
+            const p = Math.pow(env.FL * xAbs / 100, 0.42);
+            return Math.sign(x) * 400 * p / (p + 27.13) + 0.1;
+        };
+        const rAA = adapt(rA), gAA = adapt(gA), bAA = adapt(bA);
+
+        // 计算 a, b (对手色通道)
+        const a = rAA - 12 * gAA / 11 + bAA / 11;
+        const bVal = (rAA + gAA - 2 * bAA) / 9;
+
+        // 色相角 h
+        let h = Math.atan2(bVal, a) * 180 / Math.PI;
+        if (h < 0) h += 360;
+
+        // 无彩度信号 A
+        const A = (2 * rAA + gAA + bAA / 20 - 0.305) * env.Nbb;
+
+        // 明度 J
+        const J = 100 * Math.pow(A / env.Aw, env.c * env.z);
+
+        // 色度相关
+        const et = 0.25 * (Math.cos(h * Math.PI / 180 + 2) + 3.8);
+        const t = 50000/13 * env.Nc * env.Ncb * et * Math.sqrt(a*a + bVal*bVal) /
+                  (rAA + gAA + 21 * bAA / 20 + 0.305);
+        const C = t > 0 ? Math.pow(t, 0.9) * Math.sqrt(J / 100) * Math.pow(1.64 - Math.pow(0.29, env.n), 0.73) : 0;
+        const M = C * Math.pow(env.FL, 0.25);
+
+        // CAM16-UCS 坐标 (J', a', b')
+        const Jp = 1.7811 * J / (1 + 0.0228 * J);
+        const Mp = (1 / 0.0228) * Math.log(1 + 0.0228 * M);
+        const ap = Mp * Math.cos(h * Math.PI / 180);
+        const bp = Mp * Math.sin(h * Math.PI / 180);
+
+        return [Jp, ap, bp];
+    }
+
+    // CAM16-UCS 色差 (ΔE')
+    function cam16UCSDistance(cam1, cam2) {
+        const dJ = cam1[0] - cam2[0];
+        const da = cam1[1] - cam2[1];
+        const db = cam1[2] - cam2[2];
+        return Math.sqrt(dJ * dJ + da * da + db * db);
+    }
+
     function precomputePaletteLab(palette) {
         return palette.map(c => ({
             ...c,
-            lab: rgbToLab(c.rgb[0], c.rgb[1], c.rgb[2])
+            lab: rgbToLab(c.rgb[0], c.rgb[1], c.rgb[2]),
+            cam16: rgbToCAM16UCS(c.rgb[0], c.rgb[1], c.rgb[2])
         }));
     }
 
     function findClosestColor(r, g, b, paletteLab) {
-        const lab = rgbToLab(r, g, b);
+        const cam = rgbToCAM16UCS(r, g, b);
         let minDist = Infinity;
         let best = paletteLab[0];
         for (const c of paletteLab) {
-            const dL = lab[0] - c.lab[0];
-            const da = lab[1] - c.lab[1];
-            const db = lab[2] - c.lab[2];
-            const dist = dL * dL + da * da + db * db;
+            const dist = cam16UCSDistance(cam, c.cam16);
             if (dist < minDist) {
                 minDist = dist;
                 best = c;
@@ -2458,14 +2544,11 @@
     }
 
     function findClosestInSubset(r, g, b, subsetLab) {
-        const lab = rgbToLab(r, g, b);
+        const cam = rgbToCAM16UCS(r, g, b);
         let minDist = Infinity;
         let best = subsetLab[0];
         for (const c of subsetLab) {
-            const dL = lab[0] - c.lab[0];
-            const da = lab[1] - c.lab[1];
-            const db = lab[2] - c.lab[2];
-            const dist = dL * dL + da * da + db * db;
+            const dist = cam16UCSDistance(cam, c.cam16);
             if (dist < minDist) {
                 minDist = dist;
                 best = c;
@@ -2801,7 +2884,7 @@
         const maxColorsVal = parseInt(document.getElementById('maxColors').value);
         const simplifyMode = document.getElementById('simplifyMode').value;
 
-        const palette = paletteMode === 'acnh' ? ACNH_PALETTE : paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : HAMA_PALETTE;
+                                const palette = paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : MARD_PALETTE;
         const paletteLab = precomputePaletteLab(palette);
 
         // 缩放图片到目标尺寸（居中裁剪为正方形）
@@ -3155,18 +3238,15 @@
 
         // 获取当前色板中所有颜色（不仅仅是图纸中已有的）
         const paletteMode = paletteModeSelect.value;
-        const palette = paletteMode === 'acnh' ? ACNH_PALETTE : paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : HAMA_PALETTE;
+const palette = paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : MARD_PALETTE;
         const paletteLab = precomputePaletteLab(palette);
 
-        // 按与源颜色的Lab距离排序（最相近的排前面）
-        const sourceLab = rgbToLab(sourceInfo.color.rgb[0], sourceInfo.color.rgb[1], sourceInfo.color.rgb[2]);
+        // 按与源颜色的CAM16-UCS距离排序（最相近的排前面）
+        const sourceCam = rgbToCAM16UCS(sourceInfo.color.rgb[0], sourceInfo.color.rgb[1], sourceInfo.color.rgb[2]);
         const sortedPalette = paletteLab
             .filter(c => c.code !== sourceCode)
             .map(c => {
-                const dL = sourceLab[0] - c.lab[0];
-                const da = sourceLab[1] - c.lab[1];
-                const db = sourceLab[2] - c.lab[2];
-                const dist = Math.sqrt(dL * dL + da * da + db * db);
+                const dist = cam16UCSDistance(sourceCam, c.cam16);
                 const inUse = !!colorMap[c.code];
                 return { color: c, dist, inUse, count: inUse ? colorMap[c.code].count : 0 };
             })
@@ -3243,7 +3323,7 @@
 
         // 获取当前色板
         const paletteMode = paletteModeSelect.value;
-        const palette = paletteMode === 'acnh' ? ACNH_PALETTE : paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : HAMA_PALETTE;
+const palette = paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : MARD_PALETTE;
         const paletteLab = precomputePaletteLab(palette);
 
         // 找到目标颜色对象
@@ -3331,7 +3411,7 @@
 
         // 获取当前色板
         const paletteMode = paletteModeSelect.value;
-        const palette = paletteMode === 'acnh' ? ACNH_PALETTE : paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : HAMA_PALETTE;
+const palette = paletteMode === 'friendmaker' ? FRIENDMAKER_PALETTE : MARD_PALETTE;
         const paletteLab = precomputePaletteLab(palette);
 
         // 构建保留颜色的子集
@@ -3486,6 +3566,193 @@
         document.getElementById('fileInput').addEventListener('change', (e) => {
             if (e.target.files.length > 0) handleFile(e.target.files[0]);
         });
+
+        // ============================================================
+        // 导入豆画图纸功能 - 识别圆珠图纸中的色号并转换为方格图纸
+        // ============================================================
+        const importBeadChartBtn = document.getElementById('importBeadChartBtn');
+        const beadChartInput = document.getElementById('beadChartInput');
+
+        importBeadChartBtn.addEventListener('click', () => {
+            beadChartInput.click();
+        });
+
+        beadChartInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                importBeadChart(e.target.files[0]);
+            }
+        });
+
+        function importBeadChart(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    processBeadChart(img);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function processBeadChart(img) {
+            // 构建 Mard 色板的颜色查找表
+            const mardPaletteLab = precomputePaletteLab(MARD_PALETTE);
+
+            // 将图纸绘制到 canvas 上
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, img.width, img.height).data;
+
+            // 豆画图纸的特征：
+            // 1. 圆珠排列在网格中，每个圆珠内标注了色号文字
+            // 2. 圆珠之间有间隙（通常是浅灰色/白色背景）
+            // 3. 图纸底部有色号图例
+
+            // 策略：采样每个圆珠中心的颜色，然后匹配到最近的 Mard 色号
+            // 先检测网格大小
+
+            // 自动检测圆珠大小和间距
+            // 通过扫描水平线，找到颜色变化的周期
+            const detectGridParams = () => {
+                const midY = Math.floor(img.height * 0.4); // 取图纸中间偏上的位置
+                const scanLine = [];
+                for (let x = 0; x < img.width; x++) {
+                    const idx = (midY * img.width + x) * 4;
+                    const brightness = imageData[idx] * 0.299 + imageData[idx+1] * 0.587 + imageData[idx+2] * 0.114;
+                    scanLine.push(brightness);
+                }
+
+                // 找到亮度变化的周期（圆珠→间隙→圆珠）
+                // 使用自相关函数
+                const len = scanLine.length;
+                const mean = scanLine.reduce((a,b) => a+b, 0) / len;
+                let bestPeriod = 0;
+                let bestCorr = -Infinity;
+
+                for (let period = 8; period < Math.min(60, len / 4); period++) {
+                    let corr = 0;
+                    let count = 0;
+                    for (let i = 0; i < len - period; i++) {
+                        corr += (scanLine[i] - mean) * (scanLine[i + period] - mean);
+                        count++;
+                    }
+                    corr /= count;
+                    if (corr > bestCorr) {
+                        bestCorr = corr;
+                        bestPeriod = period;
+                    }
+                }
+
+                return bestPeriod || 20; // 默认20像素
+            };
+
+            const cellSize = detectGridParams();
+            console.log(`豆画图纸导入: 检测到圆珠间距约 ${cellSize}px`);
+
+            // 检测图纸的有效区域（排除标题和图例）
+            // 通常图纸上方有标题，下方有色号图例
+            // 通过检测颜色丰富度来确定有效区域
+            let topY = 0, bottomY = img.height;
+
+            // 从上往下扫描，找到第一行有多种颜色的位置
+            for (let y = 0; y < img.height; y++) {
+                const colors = new Set();
+                for (let x = 0; x < img.width; x += cellSize / 2) {
+                    const idx = (y * img.width + Math.floor(x)) * 4;
+                    const key = `${Math.floor(imageData[idx]/32)},${Math.floor(imageData[idx+1]/32)},${Math.floor(imageData[idx+2]/32)}`;
+                    colors.add(key);
+                }
+                if (colors.size > 5) {
+                    topY = Math.max(0, y - cellSize);
+                    break;
+                }
+            }
+
+            // 从下往上扫描，找到最后一行有多种颜色的位置
+            for (let y = img.height - 1; y > topY; y--) {
+                const colors = new Set();
+                for (let x = 0; x < img.width; x += cellSize / 2) {
+                    const idx = (y * img.width + Math.floor(x)) * 4;
+                    const key = `${Math.floor(imageData[idx]/32)},${Math.floor(imageData[idx+1]/32)},${Math.floor(imageData[idx+2]/32)}`;
+                    colors.add(key);
+                }
+                if (colors.size > 5) {
+                    bottomY = Math.min(img.height, y + cellSize);
+                    break;
+                }
+            }
+
+            // 计算网格尺寸
+            const effectiveWidth = img.width;
+            const effectiveHeight = bottomY - topY;
+            const gridW = Math.round(effectiveWidth / cellSize);
+            const gridH = Math.round(effectiveHeight / cellSize);
+            const size = Math.max(gridW, gridH);
+
+            console.log(`豆画图纸导入: 有效区域 y=${topY}~${bottomY}, 网格 ${gridW}×${gridH}`);
+
+            // 采样每个网格中心的颜色，匹配到 Mard 色板
+            const result = [];
+            const TRANSPARENT_COLOR = { code: 'NONE', name: '透明', rgb: [220, 220, 220] };
+
+            for (let gy = 0; gy < gridH; gy++) {
+                for (let gx = 0; gx < gridW; gx++) {
+                    // 采样圆珠中心区域的颜色（取3×3区域的中位数）
+                    const centerX = Math.floor(gx * cellSize + cellSize / 2);
+                    const centerY = Math.floor(topY + gy * cellSize + cellSize / 2);
+
+                    if (centerX >= img.width || centerY >= img.height) {
+                        result.push(TRANSPARENT_COLOR);
+                        continue;
+                    }
+
+                    // 采样中心区域
+                    const samples = [];
+                    const sampleRadius = Math.max(1, Math.floor(cellSize / 6));
+                    for (let dy = -sampleRadius; dy <= sampleRadius; dy++) {
+                        for (let dx = -sampleRadius; dx <= sampleRadius; dx++) {
+                            const sx = Math.min(img.width - 1, Math.max(0, centerX + dx));
+                            const sy = Math.min(img.height - 1, Math.max(0, centerY + dy));
+                            const idx = (sy * img.width + sx) * 4;
+                            samples.push([imageData[idx], imageData[idx+1], imageData[idx+2]]);
+                        }
+                    }
+
+                    // 取中位数颜色
+                    samples.sort((a, b) => (a[0]+a[1]+a[2]) - (b[0]+b[1]+b[2]));
+                    const median = samples[Math.floor(samples.length / 2)];
+
+                    // 检查是否是背景色（浅灰/白色间隙）
+                    const brightness = median[0] * 0.299 + median[1] * 0.587 + median[2] * 0.114;
+                    if (brightness > 235) {
+                        // 可能是间隙或背景，检查周围是否也是亮色
+                        result.push(TRANSPARENT_COLOR);
+                    } else {
+                        result.push(findClosestColor(median[0], median[1], median[2], mardPaletteLab));
+                    }
+                }
+            }
+
+            // 设置 gridData 并渲染
+            gridData = { data: result, size: gridW, width: gridW, height: gridH };
+
+            // 统计颜色使用情况
+            const colorCount = {};
+            for (const c of result) {
+                if (c.code !== 'NONE') {
+                    colorCount[c.code] = (colorCount[c.code] || 0) + 1;
+                }
+            }
+            const uniqueColors = Object.keys(colorCount).length;
+            console.log(`豆画图纸导入完成: ${gridW}×${gridH} 网格, ${uniqueColors} 种颜色`);
+
+            renderGrid();
+            alert(`✅ 豆画图纸导入成功！\n\n网格: ${gridW}×${gridH}\n颜色: ${uniqueColors} 种 Mard 色号\n\n已自动转换为方格拼豆图纸。`);
+        }
     });
     </script>
 </body>
