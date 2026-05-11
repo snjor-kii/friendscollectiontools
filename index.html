@@ -646,6 +646,14 @@
             display: none !important;
         }
 
+        .lineart-settings {
+            background: #ede9fe !important;
+            border: 1px solid #c4b5fd !important;
+        }
+        .lineart-settings.hidden {
+            display: none !important;
+        }
+
         .outline-settings {
             margin-top: 8px;
             padding: 10px 14px;
@@ -867,8 +875,29 @@
                         <label>色块分割：</label>
                         <select id="segmentMode">
                             <option value="slic" selected>超像素分割（推荐）</option>
+                            <option value="lineart">✏️ 线稿模式（简笔画/漫画线稿）</option>
                             <option value="none">不分割（逐像素）</option>
                         </select>
+                    </div>
+                    <div class="segment-settings lineart-settings" id="lineartSettings" style="display:none;">
+                        <div class="range-group">
+                            <label>线条阈值：</label>
+                            <input type="range" id="lineartThreshold" min="80" max="230" value="180">
+                            <span class="range-value" id="lineartThresholdVal">180</span>
+                        </div>
+                        <div class="range-group">
+                            <label>线条加粗：</label>
+                            <input type="range" id="lineartBold" min="0" max="3" value="1">
+                            <span class="range-value" id="lineartBoldVal">1</span>
+                        </div>
+                        <div class="range-group">
+                            <label>填色区域数：</label>
+                            <input type="range" id="lineartFillColors" min="2" max="12" value="4">
+                            <span class="range-value" id="lineartFillColorsVal">4</span>
+                        </div>
+                        <div style="font-size:11px;color:#6366f1;padding:4px 8px;background:#eef2ff;border-radius:6px;margin-top:4px;">
+                            💡 线稿模式专为简笔画、漫画线稿、手绘等设计。会先提取线条，再对非线条区域填色，保证线条清晰不断裂。
+                        </div>
                     </div>
                     <div class="segment-settings" id="segmentSettings">
                         <div class="range-group">
@@ -987,6 +1016,7 @@
                 💡 <strong>提示：</strong>HAMA Midi 221 是 HAMA 拼豆的色号体系。生成的图纸每个格子对应一颗拼豆，格子内标注的数字即为 HAMA 色号。<br>
                 🎮 <strong>朋友收集梦想生活：</strong>选择"朋友收集梦想生活"色板后，将使用游戏内官方 7×12 共 84 色调色板。色号格式为 <code>R行C列</code>（如 R4C8 = 第4行第8列），对应游戏中调色盘的位置，方便你直接照着画。<br>
                 🧩 <strong>色块分割（核心）：</strong>使用 SLIC 超像素算法将图片先分割成大的色块区域，每个色块统一用一种颜色。"色块大小"越大色块越大越简洁，"颜色权重"越大越倾向按颜色分割。<br>
+                ✏️ <strong>线稿模式（NEW）：</strong>专为简笔画、漫画线稿、手绘图设计。先用自适应阈值提取线条，再对非线条区域聚类填色，保证线条清晰不断裂。"线条阈值"越高越容易识别为线条，"线条加粗"让线条在低分辨率下更清晰。<br>
                 ✏️ <strong>描边（精髓）：</strong>用 Sobel 边缘检测自动识别颜色变化剧烈的边界，包括外轮廓和内部线条（五官、头发、衣服褶皱等），用深色描边让图案轮廓清晰。"灵敏度"越低描边越多越细致。<br>
                 ✂️ <strong>去除背景：</strong>"智能"模式会自动检测 PNG 透明通道（推荐先用 <a href="https://www.remove.bg/zh" target="_blank" style="color:#7c3aed;">remove.bg</a> 抠图）；"泛洪填充"模式从边缘扩散去除纯色背景。<br>
                 🎯 <strong>颜色简化：</strong>"智能简化"会自动检测图片的实际颜色数量并预先聚类，大幅减少最终色号数。你也可以手动设置"最大颜色"来精确控制。
@@ -1034,14 +1064,14 @@
                                 <td><button class="param-apply-btn" onclick="event.stopPropagation(); applyPreset('anime-char')">应用</button></td>
                             </tr>
                             <tr onclick="applyPreset('anime-simple')">
-                                <td><span class="type-icon">✨</span>简笔/Q版角色<br><span class="tag tag-green">简洁</span></td>
+                                <td><span class="type-icon">✨</span>简笔/Q版角色<br><span class="tag tag-green">线稿模式</span></td>
                                 <td>64</td>
-                                <td>超像素</td>
-                                <td>6</td>
-                                <td>25</td>
-                                <td>自动</td>
-                                <td>20</td>
-                                <td>2px</td>
+                                <td>✏️线稿</td>
+                                <td>—</td>
+                                <td>—</td>
+                                <td>不描边</td>
+                                <td>—</td>
+                                <td>—</td>
                                 <td>8</td>
                                 <td>强力</td>
                                 <td>智能</td>
@@ -1138,6 +1168,21 @@
                                 <td>无</td>
                                 <td><button class="param-apply-btn" onclick="event.stopPropagation(); applyPreset('friendmaker')">应用</button></td>
                             </tr>
+                            <tr onclick="applyPreset('lineart')">
+                                <td><span class="type-icon">✏️</span>线稿/手绘<br><span class="tag tag-purple">NEW</span></td>
+                                <td>128</td>
+                                <td>✏️线稿</td>
+                                <td>—</td>
+                                <td>—</td>
+                                <td>不描边</td>
+                                <td>—</td>
+                                <td>—</td>
+                                <td>自动</td>
+                                <td>不简化</td>
+                                <td>智能</td>
+                                <td>无</td>
+                                <td><button class="param-apply-btn" onclick="event.stopPropagation(); applyPreset('lineart')">应用</button></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -1218,10 +1263,11 @@
             maxColors: '0', simplifyMode: 'auto', removeBgMode: 'auto'
         },
         'anime-simple': {
-            gridSize: '64', ditherMode: 'none', segmentMode: 'slic',
+            gridSize: '64', ditherMode: 'none', segmentMode: 'lineart',
             segmentSize: 6, segmentCompact: 25,
-            outlineMode: 'sobel', outlineSensitivity: 20, outlineThickness: '2',
-            maxColors: '8', simplifyMode: 'aggressive', removeBgMode: 'auto'
+            outlineMode: 'none', outlineSensitivity: 20, outlineThickness: '2',
+            maxColors: '8', simplifyMode: 'aggressive', removeBgMode: 'auto',
+            lineartThreshold: 180, lineartBold: 1, lineartFillColors: 4
         },
         'pixel-art': {
             gridSize: '32', ditherMode: 'none', segmentMode: 'none',
@@ -1259,6 +1305,13 @@
             outlineMode: 'sobel', outlineSensitivity: 25, outlineThickness: '1',
             maxColors: '12', simplifyMode: 'auto', removeBgMode: 'auto',
             paletteMode: 'friendmaker'
+        },
+        'lineart': {
+            gridSize: '128', ditherMode: 'none', segmentMode: 'lineart',
+            segmentSize: 4, segmentCompact: 20,
+            outlineMode: 'none', outlineSensitivity: 25, outlineThickness: '1',
+            maxColors: '0', simplifyMode: 'none', removeBgMode: 'auto',
+            lineartThreshold: 180, lineartBold: 1, lineartFillColors: 5
         }
     };
 
@@ -1297,7 +1350,24 @@
 
         // 触发联动显示/隐藏（使用classList与现有逻辑一致）
         const segmentSettings = document.getElementById('segmentSettings');
-        segmentSettings.classList.toggle('hidden', preset.segmentMode === 'none');
+        segmentSettings.classList.toggle('hidden', preset.segmentMode !== 'slic');
+
+        const lineartSettingsEl = document.getElementById('lineartSettings');
+        lineartSettingsEl.style.display = preset.segmentMode === 'lineart' ? 'flex' : 'none';
+
+        // 如果是线稿模式，设置线稿参数
+        if (preset.lineartThreshold !== undefined) {
+            document.getElementById('lineartThreshold').value = preset.lineartThreshold;
+            document.getElementById('lineartThresholdVal').textContent = preset.lineartThreshold;
+        }
+        if (preset.lineartBold !== undefined) {
+            document.getElementById('lineartBold').value = preset.lineartBold;
+            document.getElementById('lineartBoldVal').textContent = preset.lineartBold;
+        }
+        if (preset.lineartFillColors !== undefined) {
+            document.getElementById('lineartFillColors').value = preset.lineartFillColors;
+            document.getElementById('lineartFillColorsVal').textContent = preset.lineartFillColors;
+        }
 
         const outlineSettings = document.getElementById('outlineSettings');
         outlineSettings.classList.toggle('hidden', preset.outlineMode === 'none');
@@ -1314,7 +1384,8 @@
             'photo-portrait': '📸 真人照片/写实',
             'landscape': '🏔️ 风景/场景',
             'text-art': '🔤 文字/书法',
-            'friendmaker': '🎮 朋友收集专用'
+            'friendmaker': '🎮 朋友收集专用',
+            'lineart': '✏️ 线稿/手绘'
         };
 
         // 闪烁动画提示已应用
@@ -1837,6 +1908,195 @@
         darkG = Math.round(darkG * darkenFactor);
         darkB = Math.round(darkB * darkenFactor);
         return findClosestColor(darkR, darkG, darkB, paletteLab);
+    }
+
+    // ============================================================
+    // 线稿模式处理 - 专为简笔画/漫画线稿/手绘设计
+    // 核心思路：先提取线条（二值化），再对非线条区域填色
+    // ============================================================
+    function lineartProcess(imageData, width, height, threshold, boldRadius, fillColorCount) {
+        const totalPixels = width * height;
+        const result = new Uint8ClampedArray(imageData);
+
+        // Step 1: 计算每个像素的亮度
+        const brightness = new Float32Array(totalPixels);
+        for (let i = 0; i < totalPixels; i++) {
+            const r = imageData[i * 4];
+            const g = imageData[i * 4 + 1];
+            const b = imageData[i * 4 + 2];
+            brightness[i] = r * 0.299 + g * 0.587 + b * 0.114;
+        }
+
+        // Step 2: 自适应阈值二值化 - 区分线条和非线条
+        // 使用局部自适应阈值（结合全局阈值），更好地处理不均匀光照
+        const lineMask = new Uint8Array(totalPixels); // 1=线条, 0=非线条
+        const blockRadius = Math.max(4, Math.floor(width / 16));
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                // 计算局部平均亮度
+                let localSum = 0, localCount = 0;
+                const r1 = Math.max(0, y - blockRadius), r2 = Math.min(height - 1, y + blockRadius);
+                const c1 = Math.max(0, x - blockRadius), c2 = Math.min(width - 1, x + blockRadius);
+                // 采样（不需要遍历所有像素，步长加速）
+                const step = Math.max(1, Math.floor(blockRadius / 3));
+                for (let ry = r1; ry <= r2; ry += step) {
+                    for (let rx = c1; rx <= c2; rx += step) {
+                        localSum += brightness[ry * width + rx];
+                        localCount++;
+                    }
+                }
+                const localMean = localSum / localCount;
+
+                // 结合全局阈值和局部阈值
+                // 像素亮度低于 min(全局阈值, 局部均值 - 偏移) 则为线条
+                const adaptiveThreshold = Math.min(threshold, localMean - 15);
+                if (brightness[idx] < adaptiveThreshold) {
+                    lineMask[idx] = 1;
+                }
+            }
+        }
+
+        // Step 3: 形态学膨胀 - 加粗线条（让线条在低分辨率下更清晰）
+        let finalLineMask = lineMask;
+        if (boldRadius > 0) {
+            finalLineMask = new Uint8Array(totalPixels);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (lineMask[y * width + x]) {
+                        // 膨胀
+                        for (let dy = -boldRadius; dy <= boldRadius; dy++) {
+                            for (let dx = -boldRadius; dx <= boldRadius; dx++) {
+                                const nx = x + dx, ny = y + dy;
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    if (dx * dx + dy * dy <= boldRadius * boldRadius + boldRadius) {
+                                        finalLineMask[ny * width + nx] = 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 4: 对非线条区域进行颜色聚类（K-Means）
+        // 收集非线条像素的颜色
+        const nonLinePixels = [];
+        const nonLineIndices = [];
+        for (let i = 0; i < totalPixels; i++) {
+            if (!finalLineMask[i]) {
+                nonLinePixels.push([
+                    imageData[i * 4],
+                    imageData[i * 4 + 1],
+                    imageData[i * 4 + 2]
+                ]);
+                nonLineIndices.push(i);
+            }
+        }
+
+        // K-Means 聚类非线条区域的颜色
+        if (nonLinePixels.length > 0 && fillColorCount > 1) {
+            // 初始化聚类中心（K-Means++）
+            const centers = [];
+            centers.push(nonLinePixels[Math.floor(Math.random() * nonLinePixels.length)].slice());
+
+            for (let c = 1; c < fillColorCount; c++) {
+                const distances = nonLinePixels.map(p => {
+                    let minDist = Infinity;
+                    for (const center of centers) {
+                        const d = (p[0]-center[0])**2 + (p[1]-center[1])**2 + (p[2]-center[2])**2;
+                        if (d < minDist) minDist = d;
+                    }
+                    return minDist;
+                });
+                const totalDist = distances.reduce((a, b) => a + b, 0);
+                let rand = Math.random() * totalDist;
+                for (let i = 0; i < distances.length; i++) {
+                    rand -= distances[i];
+                    if (rand <= 0) {
+                        centers.push(nonLinePixels[i].slice());
+                        break;
+                    }
+                }
+                if (centers.length <= c) {
+                    centers.push(nonLinePixels[Math.floor(Math.random() * nonLinePixels.length)].slice());
+                }
+            }
+
+            // 迭代
+            const assignments = new Uint16Array(nonLinePixels.length);
+            for (let iter = 0; iter < 15; iter++) {
+                // 分配
+                for (let i = 0; i < nonLinePixels.length; i++) {
+                    let minDist = Infinity, minIdx = 0;
+                    for (let c = 0; c < centers.length; c++) {
+                        const d = (nonLinePixels[i][0]-centers[c][0])**2 +
+                                  (nonLinePixels[i][1]-centers[c][1])**2 +
+                                  (nonLinePixels[i][2]-centers[c][2])**2;
+                        if (d < minDist) { minDist = d; minIdx = c; }
+                    }
+                    assignments[i] = minIdx;
+                }
+                // 更新中心
+                const sums = centers.map(() => [0, 0, 0]);
+                const counts = new Uint32Array(centers.length);
+                for (let i = 0; i < nonLinePixels.length; i++) {
+                    const c = assignments[i];
+                    sums[c][0] += nonLinePixels[i][0];
+                    sums[c][1] += nonLinePixels[i][1];
+                    sums[c][2] += nonLinePixels[i][2];
+                    counts[c]++;
+                }
+                for (let c = 0; c < centers.length; c++) {
+                    if (counts[c] > 0) {
+                        centers[c][0] = Math.round(sums[c][0] / counts[c]);
+                        centers[c][1] = Math.round(sums[c][1] / counts[c]);
+                        centers[c][2] = Math.round(sums[c][2] / counts[c]);
+                    }
+                }
+            }
+
+            // 将非线条像素替换为聚类中心颜色
+            for (let i = 0; i < nonLinePixels.length; i++) {
+                const pixelIdx = nonLineIndices[i];
+                const c = assignments[i];
+                result[pixelIdx * 4] = centers[c][0];
+                result[pixelIdx * 4 + 1] = centers[c][1];
+                result[pixelIdx * 4 + 2] = centers[c][2];
+            }
+        }
+
+        // Step 5: 线条像素统一为深色（取线条区域的平均色，压暗）
+        let lineR = 0, lineG = 0, lineB = 0, lineCount = 0;
+        for (let i = 0; i < totalPixels; i++) {
+            if (finalLineMask[i]) {
+                lineR += imageData[i * 4];
+                lineG += imageData[i * 4 + 1];
+                lineB += imageData[i * 4 + 2];
+                lineCount++;
+            }
+        }
+        if (lineCount > 0) {
+            // 压暗线条颜色
+            lineR = Math.round((lineR / lineCount) * 0.3);
+            lineG = Math.round((lineG / lineCount) * 0.3);
+            lineB = Math.round((lineB / lineCount) * 0.3);
+        } else {
+            lineR = lineG = lineB = 20;
+        }
+
+        for (let i = 0; i < totalPixels; i++) {
+            if (finalLineMask[i]) {
+                result[i * 4] = lineR;
+                result[i * 4 + 1] = lineG;
+                result[i * 4 + 2] = lineB;
+            }
+        }
+
+        console.log(`线稿模式: 阈值=${threshold}, 加粗=${boldRadius}, 填色数=${fillColorCount}, 线条像素=${lineCount}/${totalPixels} (${(lineCount/totalPixels*100).toFixed(1)}%)`);
+        return result;
     }
 
     // ============================================================
@@ -2389,8 +2649,27 @@
     });
 
     // 色块分割模式联动
+    const lineartSettings = document.getElementById('lineartSettings');
+    const lineartThresholdSlider = document.getElementById('lineartThreshold');
+    const lineartThresholdVal = document.getElementById('lineartThresholdVal');
+    const lineartBoldSlider = document.getElementById('lineartBold');
+    const lineartBoldVal = document.getElementById('lineartBoldVal');
+    const lineartFillColorsSlider = document.getElementById('lineartFillColors');
+    const lineartFillColorsVal = document.getElementById('lineartFillColorsVal');
+
     segmentModeSelect.addEventListener('change', () => {
-        segmentSettings.classList.toggle('hidden', segmentModeSelect.value === 'none');
+        const mode = segmentModeSelect.value;
+        segmentSettings.classList.toggle('hidden', mode !== 'slic');
+        lineartSettings.style.display = mode === 'lineart' ? 'flex' : 'none';
+    });
+    lineartThresholdSlider.addEventListener('input', () => {
+        lineartThresholdVal.textContent = lineartThresholdSlider.value;
+    });
+    lineartBoldSlider.addEventListener('input', () => {
+        lineartBoldVal.textContent = lineartBoldSlider.value;
+    });
+    lineartFillColorsSlider.addEventListener('input', () => {
+        lineartFillColorsVal.textContent = lineartFillColorsSlider.value;
     });
     segmentSizeSlider.addEventListener('input', () => {
         segmentSizeVal.textContent = segmentSizeSlider.value;
@@ -2597,6 +2876,12 @@
             const compactness = parseInt(segmentCompactSlider.value);
             console.log(`色块分割(SLIC): 块大小=${blockSize}, 紧凑度=${compactness}`);
             imageData = slicSegmentation(imageData, size, size, blockSize, compactness);
+        } else if (segmentMode === 'lineart') {
+            // 线稿模式：二值化提取线条 + 填色区域聚类
+            const lineThreshold = parseInt(lineartThresholdSlider.value);
+            const lineBold = parseInt(lineartBoldSlider.value);
+            const lineFillColors = parseInt(lineartFillColorsSlider.value);
+            imageData = lineartProcess(imageData, size, size, lineThreshold, lineBold, lineFillColors);
         }
 
         // ===== 颜色预简化步骤 =====
